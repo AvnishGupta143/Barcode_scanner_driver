@@ -4,6 +4,7 @@ import time
 import sys
 import struct
 import rospy
+from std_msgs.msg import Int16MultiArray
 
 class Barcode_scanner(object):
 
@@ -30,6 +31,9 @@ class Barcode_scanner(object):
 		self.ser.dsrdtr = False       # disable hardware (DSR/DTR) flow control
 		self.ser.timeout = 0.01
 		self.ser.writeTimeout = None  # timeout for write
+		self.publish_data_to_rostopic = True
+
+		self.data_pub = rospy.Publisher('/barcode_scanner_data', Int16MultiArray, queue_size = 10)
 
 	def start(self):
 		try:
@@ -90,17 +94,25 @@ class Barcode_scanner(object):
  			return True
 
 	def process_data(self,bytes_received):
-
-			X_value  = int(bytes_received[5])-int(bytes_received[4])
-			Y_value  = int(bytes_received[7])-int(bytes_received[6])
-			Ang_value= int(bytes_received[10])*128 + int(bytes_received[11])
-			Tag_id   = int(bytes_received[17]) - int(bytes_received[16])
-			Marker   = 1
+		X_value  = int(bytes_received[5])-int(bytes_received[4])
+		Y_value  = int(bytes_received[7])-int(bytes_received[6])
+		Ang_value= int(bytes_received[10])*128 + int(bytes_received[11])
+		Tag_id   = int(bytes_received[17]) - int(bytes_received[16])
+		Marker   = 1
             
-			print("X_value: %d | Y_value: %d | Ang_value: %d | Tag_id: %d | Marker: %d" %(X_value,Y_value,Ang_value,Tag_id,Marker))
+		#print("X_value: %d | Y_value: %d | Ang_value: %d | Tag_id: %d | Marker: %d" %(X_value,Y_value,Ang_value,Tag_id,Marker))
+
+		if self.publish_data_to_rostopic == True:
+			publish_data(X_value,Y_value,Ang_value,Tag_id,Marker)
+
+	def publish_data(X_value,Y_value,Ang_value,Tag_id,Marker):
+		msg = Int16MultiArray()
+		msg.data = [X_value,Y_value,Ang_value,Tag_id,Marker]
+		self.data_pub.publish(msg) 
 
 if __name__ == '__main__':
 	#while port is opened
+	rospy.init_node('Barcode_scanner', anonymous=True)
 	Port = Barcode_scanner()
 	#raw_input()
 	Port.start()
@@ -109,4 +121,3 @@ if __name__ == '__main__':
 		Port.write()
 		Port.read()
 	Port.ser.close()
-
